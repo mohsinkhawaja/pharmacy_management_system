@@ -5,13 +5,20 @@ $con = mysqli_connect("localhost", "root", "", "newpharmacy");
 $sql_customers = "SELECT * FROM customers";
 $rec_customers = mysqli_query($con, $sql_customers);
 
+
 // Function to generate invoice number
 function generateInvoiceNumber($con) {
-  $sql_invoice_count = "SELECT COUNT(*) AS invoice_count FROM invoices";
-  $result_invoice_count = mysqli_query($con, $sql_invoice_count);
-  $row_invoice_count = mysqli_fetch_assoc($result_invoice_count);
-  return $row_invoice_count['invoice_count'] + 1;
+  $sql_last_invoice = "SELECT MAX(invoice_id) AS last_id FROM invoices";
+  $result_last_invoice = mysqli_query($con, $sql_last_invoice);
+  $row_last_invoice = mysqli_fetch_assoc($result_last_invoice);
+  $last_id = $row_last_invoice['last_id'];
+  
+  return $last_id ? $last_id + 1 : 1; // If there's no previous invoice, start from 1
 }
+
+// ... rest of your code remains unchanged
+
+
 
 // Handle form submissions (add invoice, add medicine to invoice)
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -99,12 +106,12 @@ $rec_medicines = mysqli_query($con, $sql_medicines);
   }
   ?>
 
-  <h2>Create New Invoice</h2>
+  <h2>Create New Invoice</h2><br>
   <form action="invoice_entry.php" method="post">
-    <label for="invoice_date">Date:</label><br>
-    <input type="date" id="invoice_date" name="invoice_date" value="<?php echo date('Y-m-d'); ?>"><br><br>
+    <label for="invoice_date">Date:</label>
+    <input type="date" id="invoice_date" name="invoice_date" value="<?php echo date('Y-m-d'); ?>">&nbsp; &nbsp;&nbsp; &nbsp;
 
-    <label for="customer_id">Customer Name:</label><br>
+    <label for="customer_id">Customer Name:</label>
     <select id="customer_id" name="customer_id">
       <?php
       while ($row_customer = mysqli_fetch_assoc($rec_customers)) {
@@ -117,22 +124,22 @@ $rec_medicines = mysqli_query($con, $sql_medicines);
     <input type="submit" name="action" value="Add Invoice">
   </form>
   <hr>
-  <h2>Invoice Details</h2>
+  <h2>Invoice Details</h2><br>
   <form action="invoice_entry.php" method="post">
     <input type="hidden" name="invoice_id" value="<?php echo $invoice_id; ?>">
-    <label for="medicine_id">Medicine Name:</label><br>
+    <label for="medicine_id">Medicine Name:</label>
     <select id="medicine_id" name="medicine_id">
       <?php
       while ($row_medicine = mysqli_fetch_assoc($rec_medicines)) {
         echo "<option value='" . $row_medicine['m_id'] . "'>" . $row_medicine['m_name'] . "</option>";
       }
       ?>
-    </select><br><br>
+    </select>&nbsp; &nbsp;&nbsp; &nbsp;
 
-    <label for="quantity">Quantity:</label><br>
-    <input type="number" id="quantity" name="quantity" value="1"><br><br>
+    <label for="quantity">Quantity:</label>
+    <input type="number" id="quantity" name="quantity" value="1">&nbsp; &nbsp;&nbsp; &nbsp;
 
-    <label for="discount">Discount (%):</label><br>
+    <label for="discount">Discount (%):</label>
     <input type="number" id="discount" name="discount" value="0"><br><br>
 
     <input type="submit" name="action" value="Add Medicine">
@@ -140,35 +147,38 @@ $rec_medicines = mysqli_query($con, $sql_medicines);
   <hr>
   <h2>Invoice Medicines</h2>
   <?php
-  if ($invoice_id) {
-    if ($result_invoice_medicines) {
-  ?>
-      <table border="1">
-        <tr>
-          <th>Medicine Name</th>
-          <th>Quantity</th>
-          <th>Price</th>
-          <th>Discount</th>
-          <th>Total</th>
-        </tr>
-        <?php
-        while ($row_invoice_medicine = mysqli_fetch_assoc($result_invoice_medicines)) {
-          echo "<tr>";
-          echo "<td>" . $row_invoice_medicine['m_name'] . "</td>";
-          echo "<td>" . $row_invoice_medicine['quantity'] . "</td>";
-          echo "<td>" . $row_invoice_medicine['price'] . "</td>";
-          echo "<td>" . $row_invoice_medicine['discount'] . "%</td>";
-          echo "<td>" . $row_invoice_medicine['total'] . "</td>";
-          echo "</tr>";
-        }
-        ?>
-      </table>
-  <?php
-    } else {
-      echo "<p>No invoice medicines found.</p>";
-    }
+if ($invoice_id) {
+  if ($result_invoice_medicines && mysqli_num_rows($result_invoice_medicines) > 0) {
+    mysqli_data_seek($result_invoice_medicines, 0); // Reset the internal pointer to the beginning
+    $invoice_medicines = mysqli_fetch_all($result_invoice_medicines, MYSQLI_ASSOC);
+?>
+    <table border="1">
+      <tr>
+        <th>Medicine Name</th>
+        <th>Quantity</th>
+        <th>Price</th>
+        <th>Discount</th>
+        <th>Total</th>
+      </tr>
+      <?php
+      foreach ($invoice_medicines as $row_invoice_medicine) {
+        echo "<tr>";
+        echo "<td>" . $row_invoice_medicine['m_name'] . "</td>";
+        echo "<td>" . $row_invoice_medicine['quantity'] . "</td>";
+        echo "<td>" . $row_invoice_medicine['price'] . "</td>";
+        echo "<td>" . $row_invoice_medicine['discount'] . "%</td>";
+        echo "<td>" . $row_invoice_medicine['total'] . "</td>";
+        echo "</tr>";
+      }
+      ?>
+    </table>
+<?php
+  } else {
+    echo "<p>No invoice medicines found.</p>";
   }
-  ?>
+}
+?>
+
 </body>
 
 </html>
